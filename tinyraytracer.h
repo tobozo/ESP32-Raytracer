@@ -121,8 +121,8 @@ Vec3f cast_ray(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphere> &s
 }
 
 void render(const std::vector<Sphere> &spheres, const std::vector<Light> &lights) {
-    const int width    = 1024;
-    const int height   = 768;
+    const int width    = 320;
+    const int height   = 240;
     const int fov      = M_PI/2.;
     std::vector<Vec3f> framebuffer(width*height);
 
@@ -136,18 +136,19 @@ void render(const std::vector<Sphere> &spheres, const std::vector<Light> &lights
         }
     }
 
-    std::ofstream ofs; // save the framebuffer to file
-    ofs.open("./out.ppm");
-    ofs << "P6\n" << width << " " << height << "\n255\n";
+    //std::ofstream ofs; // save the framebuffer to file
+    //ofs.open("./out.ppm");
+    
+    Serial << "P6\n" << width << " " << height << "\n255\n";
     for (size_t i = 0; i < height*width; ++i) {
         Vec3f &c = framebuffer[i];
         float max = std::max(c[0], std::max(c[1], c[2]));
         if (max>1) c = c*(1./max);
         for (size_t j = 0; j<3; j++) {
-            ofs << (char)(255 * std::max(0.f, std::min(1.f, framebuffer[i][j])));
+            Serial << (char)(255 * std::max(0.f, std::min(1.f, framebuffer[i][j])));
         }
     }
-    ofs.close();
+    //ofs.close();
 }
 
 int arduinomain() {
