@@ -122,39 +122,36 @@ Vec3f cast_ray(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphere> &s
 }
 
 void render(const std::vector<Sphere> &spheres, const std::vector<Light> &lights) {
-    const int width    = 320;
-    const int height   = 240;
+    const int width    = tft.width();
+    const int height   = tft.height();
     const int fov      = M_PI/2.;
-    std::vector<Vec3f> framebuffer(width*height);
+    std::vector<Vec3f> framebuffer(1);
 
-    #pragma omp parallel for
+    //#pragma omp parallel for
+    // yay ! thanks to @atanisoft https://gitter.im/espressif/arduino-esp32?at=5c474edc8ce4bb25b8f1ed95
     for (size_t j = 0; j<height; j++) {
         for (size_t i = 0; i<width; i++) {
             float x =  (2*(i + 0.5)/(float)width  - 1)*tan(fov/2.)*width/(float)height;
             float y = -(2*(j + 0.5)/(float)height - 1)*tan(fov/2.);
             Vec3f dir = Vec3f(x, y, -1).normalize();
-            framebuffer[i+j*width] = cast_ray(Vec3f(0,0,0), dir, spheres, lights);
+            framebuffer[0] = cast_ray(Vec3f(0,0,0), dir, spheres, lights);
+            Vec3f &c = framebuffer[0];
+            float max = std::max(c[0], std::max(c[1], c[2]));
+            if (max>1) c = c*(1./max);
+
+            char r = (char)(255 * std::max(0.f, std::min(1.f, framebuffer[0][0])));
+            char g = (char)(255 * std::max(0.f, std::min(1.f, framebuffer[0][1])));
+            char b = (char)(255 * std::max(0.f, std::min(1.f, framebuffer[0][2])));
+
+            uint16_t pixelcolor = tft.color565(r, g, b);
+            tft.drawPixel(i, j, pixelcolor);
+
         }
     }
 
-    //std::ofstream ofs; // save the framebuffer to file
-    //ofs.open("./out.ppm");
-    SD_MMC.begin();
-    File ofs = SD_MMC.open("out.ppm", FILE_WRITE);
-    
-    ofs << "P6\n" << width << " " << height << "\n255\n";
-    for (size_t i = 0; i < height*width; ++i) {
-        Vec3f &c = framebuffer[i];
-        float max = std::max(c[0], std::max(c[1], c[2]));
-        if (max>1) c = c*(1./max);
-        for (size_t j = 0; j<3; j++) {
-            ofs << (char)(255 * std::max(0.f, std::min(1.f, framebuffer[i][j])));
-        }
-    }
-    ofs.close();
 }
 
-int arduinomain() {
+int raytrace() {
     Material      ivory(1.0, Vec4f(0.6,  0.3, 0.1, 0.0), Vec3f(0.4, 0.4, 0.3),   50.);
     Material      glass(1.5, Vec4f(0.0,  0.5, 0.1, 0.8), Vec3f(0.6, 0.7, 0.8),  125.);
     Material red_rubber(1.0, Vec4f(0.9,  0.1, 0.0, 0.0), Vec3f(0.3, 0.1, 0.1),   10.);
