@@ -7,6 +7,7 @@
 #include <fstream>
 #include <vector>
 #include "geometry.h"
+#include "SD_MMC.h"
 
 struct Light {
     Light(const Vec3f &p, const float &i) : position(p), intensity(i) {}
@@ -138,17 +139,19 @@ void render(const std::vector<Sphere> &spheres, const std::vector<Light> &lights
 
     //std::ofstream ofs; // save the framebuffer to file
     //ofs.open("./out.ppm");
+    SD_MMC.begin();
+    File ofs = SD_MMC.open("out.ppm", FILE_WRITE);
     
-    Serial << "P6\n" << width << " " << height << "\n255\n";
+    ofs << "P6\n" << width << " " << height << "\n255\n";
     for (size_t i = 0; i < height*width; ++i) {
         Vec3f &c = framebuffer[i];
         float max = std::max(c[0], std::max(c[1], c[2]));
         if (max>1) c = c*(1./max);
         for (size_t j = 0; j<3; j++) {
-            Serial << (char)(255 * std::max(0.f, std::min(1.f, framebuffer[i][j])));
+            ofs << (char)(255 * std::max(0.f, std::min(1.f, framebuffer[i][j])));
         }
     }
-    //ofs.close();
+    ofs.close();
 }
 
 int arduinomain() {
