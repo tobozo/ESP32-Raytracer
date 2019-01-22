@@ -5,15 +5,9 @@
 #include <cassert>
 #include <iostream>
 
-/*
-template<class T> inline Print &operator <<(Print &obj, T arg) {
-  obj.print(arg); return obj; 
-};
-*/
 template<class T> inline Print &operator <<(Print &obj, T arg) {
   obj.write(arg); return obj; 
 };
-
 
 template <size_t DIM, typename T> struct vec {
     vec() { for (size_t i=DIM; i--; data_[i] = T()); }
