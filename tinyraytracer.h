@@ -9,6 +9,17 @@
 #include <vector>
 #include "geometry.h"
 
+uint16_t *imgBuffer = NULL; // one scan line used for screen capture
+uint8_t  *rgbBuffer = NULL;
+
+void tinyRayTracerInit() {
+  // TODO : move this to tinytracer.h
+  imgBuffer = (uint16_t*)ps_calloc( 320*240, sizeof( uint16_t ) );
+  rgbBuffer = (uint8_t*)ps_calloc( 320*240*3, sizeof( uint8_t ) );
+}
+
+
+
 struct Light {
     Light(const Vec3f &p, const float &i) : position(p), intensity(i) {}
     Vec3f position;
@@ -121,27 +132,31 @@ Vec3f cast_ray(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphere> &s
     return material.diffuse_color * diffuse_light_intensity * material.albedo[0] + Vec3f(1., 1., 1.)*specular_light_intensity * material.albedo[1] + reflect_color*material.albedo[2] + refract_color*material.albedo[3];
 }
 
-void render(const std::vector<Sphere> &spheres, const std::vector<Light> &lights) {
-    const int width    = tft.width();
-    const int height   = tft.height();
-    const int fov      = M_PI/2.;
-    // yay ! thanks to @atanisoft https://gitter.im/espressif/arduino-esp32?at=5c474edc8ce4bb25b8f1ed95
-    for (size_t j = 0; j<height; j++) {
-        for (size_t i = 0; i<width; i++) {
-            float x =  (2*(i + 0.5)/(float)width  - 1)*tan(fov/2.)*width/(float)height;
-            float y = -(2*(j + 0.5)/(float)height - 1)*tan(fov/2.);
-            Vec3f dir = Vec3f(x, y, -1).normalize();
-            Vec3f pixelbuffer = cast_ray(Vec3f(0,0,0), dir, spheres, lights);
-            Vec3f &c = pixelbuffer;
-            float max = std::max(c[0], std::max(c[1], c[2]));
-            if (max>1) c = c*(1./max);
-            char r = (char)(255 * std::max(0.f, std::min(1.f, pixelbuffer[0])));
-            char g = (char)(255 * std::max(0.f, std::min(1.f, pixelbuffer[1])));
-            char b = (char)(255 * std::max(0.f, std::min(1.f, pixelbuffer[2])));
-            uint16_t pixelcolor = tft.color565(r, g, b);
-            tft.drawPixel(i, j, pixelcolor);
-        }
+void render(uint16_t posx, uint16_t posy, uint16_t width, uint16_t height, const std::vector<Sphere> &spheres, const std::vector<Light> &lights, float fov=M_PI/2) {
+  // yay ! thanks to @atanisoft https://gitter.im/espressif/arduino-esp32?at=5c474edc8ce4bb25b8f1ed95
+  uint32_t pos = 0;
+  for (size_t j = 0; j<height; j++) {
+    for (size_t i = 0; i<width; i++) {
+      float x =  (2*(i + 0.5)/(float)width  - 1)*tan(fov/2.)*width/(float)height;
+      float y = -(2*(j + 0.5)/(float)height - 1)*tan(fov/2.);
+      Vec3f dir = Vec3f(x, y, -1).normalize();
+      Vec3f pixelbuffer = cast_ray(Vec3f(0,0,0), dir, spheres, lights);
+      Vec3f &c = pixelbuffer;
+      float max = std::max(c[0], std::max(c[1], c[2]));
+      if (max>1) c = c*(1./max);
+      char r = (char)(255 * std::max(0.f, std::min(1.f, pixelbuffer[0])));
+      char g = (char)(255 * std::max(0.f, std::min(1.f, pixelbuffer[1])));
+      char b = (char)(255 * std::max(0.f, std::min(1.f, pixelbuffer[2])));
+
+      rgbBuffer[++pos] = (uint8_t)g;
+      rgbBuffer[++pos] = (uint8_t)b;
+      rgbBuffer[++pos] = (uint8_t)r;
+
+      //uint16_t pixelcolor = tft.color565(r, g, b);
+      //tft.drawPixel(i+posx, j+posy, pixelcolor);
     }
+  }
+  //Serial.printf("Render: pos: %d, factor: %d, size: %d\n", pos, height*width*3 , height*width );
 }
 
 

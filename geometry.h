@@ -1,3 +1,4 @@
+// modified from https://github.com/ssloy/tinyraytracer
 #ifndef __GEOMETRY_H__
 #define __GEOMETRY_H__
 #include <cmath>
