@@ -1,12 +1,23 @@
 
-#include <Adafruit_GFX.h>   // Core graphics library
-#include "WROVER_KIT_LCD.h" // Latest version must have the VScroll def patch: https://github.com/espressif/WROVER_KIT_LCD/pull/3/files
-#include "SD_MMC.h"
-WROVER_KIT_LCD tft;
+#define TFT_DC    23
+#define TFT_RST   32
+#define TFT_MOSI  26   // for hardware SPI data pin (all of available pins)
+#define TFT_SCLK  27   // for hardware SPI sclk pin (all of available pins)
+#define BUTTON_PRESS   18  
+#define BUTTON_LEFT    5                         
+#define BUTTON_RIGHT   19                         
+#define PIXEL_PIN    25    // Digital IO pin connected to the NeoPixels.
+#define PIXEL_COUNT 1
+#define BUZZER 33
+#include <Arduino_ST7789.h> // Hardware-specific library for ST7789 (with or without CS pin)
+#include <Adafruit_NeoPixel.h>
+#include "FS.h"
+#include <SD_MMC.h>
+Arduino_ST7789 tft = Arduino_ST7789(TFT_DC, TFT_RST, TFT_MOSI, TFT_SCLK); //for display without CS pin
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
 #include "tinyraytracer.h" // a modified version of https://github.com/ssloy/tinyraytracer
 #include "tiny_jpeg_encoder.h" // a modified version of https://github.com/serge-rgb/TinyJPEG
-
 
 struct point {
   float initialx;
@@ -51,24 +62,41 @@ void raytrace(uint16_t x, uint16_t y, uint16_t width, uint16_t height, float fov
 }
 
 
+// Fill the dots one after the other with a color
+void colorWipe(uint32_t c, uint8_t wait) {
+  for(uint16_t i=0; i<strip.numPixels(); i++) {
+    strip.setPixelColor(i, c);
+    strip.show();
+    delay(wait);
+  }
+}
 
 void setup() {
   Serial.begin(115200);
-  SD_MMC.begin();
+  delay(200);
+  if( !SD_MMC.begin() ) {
+    Serial.println("SD MMC begin failed");
+  } else {
+    Serial.println("SD MMC OK");
+  }
   if( !psramInit() ) {
     Serial.println("PSRAM FAIL");
     while(1) {
       ;
     }
+  } else {
+    Serial.println("PSRAM OK");
   }
 
   tinyRayTracerInit();
   tinyJpegEncoderInit();
 
-  tft.begin();
-  tft.setRotation( 0 );
-  tft.setTextColor(WROVER_YELLOW);
-  tft.fillScreen(WROVER_BLACK);
+  strip.begin();
+  strip.show(); // Initialize all pixels to 'off'
+  colorWipe(strip.Color(0, 0, 0), 50);
+
+  tft.init(240, 240);   // initialize a ST7789 chip, 240x240 pixels
+  tft.fillScreen( BLACK );
  
 }
 
@@ -76,10 +104,10 @@ bool rendered = false;
 
 void loop() {
 
-  uint16_t x = 56;
-  uint16_t y = 110;
-  uint16_t width = 128;
-  uint16_t height = 64;
+  uint16_t x = 0;
+  uint16_t y = 0;
+  uint16_t width = 240;
+  uint16_t height = 240;
 
   char * fName = NULL;
   fName = (char*)malloc(32);
@@ -100,7 +128,6 @@ void loop() {
 
       sprintf(fName, "/out%d.jpg", framenum);
       const char* jpegFileName = fName;
-      float myfov = 0.5 + (float)framenum / looplength;
 
       ivorySphereCoords.x = ivorySphereCoords.initialx + (4*sin( ((float)framenum/looplength)*PI*2 ));
       ivorySphereCoords.z = ivorySphereCoords.initialz + (2*cos( ((float)framenum/looplength)*PI*2 ));
@@ -115,18 +142,15 @@ void loop() {
       if ( !tje_encode_to_file(jpegFileName, width, height, 3 /*3=RGB,4=RGBA*/, rgbBuffer) ) {
         Serial.println("Could not write JPEG\n");
       } else {
-        Serial.printf("[%d / %d] Rendering saved jpeg %s with fov %f\n", ESP.getFreeHeap(), ESP.getFreePsram(), jpegFileName, myfov);
-        tft.setCursor(0,10);
-        tft.fillRect(0,10,tft.width(), 20, 0);
-
-        tft.printf("Rendered %d out of %d", framenum+1, looplength);
-        tft.setCursor(0,20);
-
+        Serial.printf("[%d / %d] Rendering saved jpeg %s\n", ESP.getFreeHeap(), ESP.getFreePsram(), jpegFileName);
         float framelen = ( (millis() - started) / (framenum+1) ) / 1000;
         int remaining = (looplength - framenum) * framelen;
-        
+        tft.drawJpgFile(SD_MMC, jpegFileName/*, x, y, width, height, 0, 0, JPEG_DIV_NONE*/);
+        tft.setCursor(0,10);
+        tft.fillRect(0,10,tft.width(), 20, 0);
+        tft.printf("Rendered %d out of %d", framenum+1, looplength);
+        tft.setCursor(0,20);
         tft.printf("Estimated time remaining: %d seconds", remaining);
-        tft.drawJpgFile(SD_MMC, jpegFileName, x, y, width, height, 0, 0, JPEG_DIV_NONE);
       }
     }
     rendered = true;
@@ -139,7 +163,7 @@ void loop() {
   for(byte framenum=0; framenum<looplength; framenum++) {
     sprintf(fName, "/out%d.jpg", framenum);
     const char* jpegFileName = fName;
-    tft.drawJpgFile(SD_MMC, jpegFileName, x, y, width, height, 0, 0, JPEG_DIV_NONE);
+    tft.drawJpgFile(SD_MMC, jpegFileName/*, x, y, width, height, 0, 0, JPEG_DIV_NONE*/);
   }
 
   
