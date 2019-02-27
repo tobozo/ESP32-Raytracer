@@ -152,8 +152,8 @@ void render(uint16_t posx, uint16_t posy, uint16_t width, uint16_t height, const
       rgbBuffer[++pos] = (uint8_t)b;
       rgbBuffer[++pos] = (uint8_t)r;
 
-      uint16_t pixelcolor = tft.color565(r, g, b);
-      tft.drawPixel(i+posx, j+posy, pixelcolor);
+      //uint16_t pixelcolor = tft.color565(r, g, b);
+      //tft.drawPixel(i+posx, j+posy, pixelcolor);
     }
   }
   //Serial.printf("Render: pos: %d, factor: %d, size: %d\n", pos, height*width*3 , height*width );
